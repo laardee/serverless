@@ -25,7 +25,7 @@ describe('Service', () => {
       expect(serviceInstance.defaults).to.deep.equal({
         stage: 'dev',
         region: 'us-east-1',
-        variableSyntax: null,
+        variableSyntax: '\\${([a-zA-Z0-9._\\-\\/\\(\\)]+?)}',
       });
       expect(serviceInstance.custom).to.deep.equal({});
       expect(serviceInstance.plugins).to.deep.equal([]);
@@ -108,116 +108,19 @@ describe('Service', () => {
       const serverless = new Serverless();
       const noService = new Service(serverless);
 
-      noService.load().then(() => done());
+      return noService.load().then(() => done());
     });
 
-    it('should support Serverless files with a .yaml extension', () => {
+    it('should load from filesystem', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYaml = {
-        service: 'my-service',
-        provider: 'aws',
-        functions: {
-          functionA: {},
-        },
-      };
-      const serverlessEnvYaml = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {
-              'us-east-1': {
-                vars: {},
-              },
-            },
-          },
-        },
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yaml'),
-        YAML.dump(serverlessYaml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yaml'),
-        YAML.dump(serverlessEnvYaml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load().then((loadedService) => {
-        const expectedFunc = {
-          functionA: {
-            name: 'my-service-dev-functionA',
-            events: [],
-          },
-        };
-        expect(loadedService.service).to.be.equal('my-service');
-        expect(loadedService.provider).to.deep.equal({ name: 'aws' });
-        expect(loadedService.functions).to.deep.equal(expectedFunc);
-        expect(serviceInstance.environment.stages.dev.regions['us-east-1'].vars)
-          .to.deep.equal({});
-      });
-    });
-
-    it('should support Serverless files with a .yml extension', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
       const serverlessYml = {
-        service: 'my-service',
-        provider: 'aws',
-        functions: {
-          functionA: {},
-        },
-      };
-      const serverlessEnvYml = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {
-              'us-east-1': {
-                vars: {},
-              },
-            },
-          },
-        },
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load().then((loadedService) => {
-        const expectedFunc = {
-          functionA: {
-            name: 'my-service-dev-functionA',
-            events: [],
-          },
-        };
-        expect(loadedService.service).to.be.equal('my-service');
-        expect(loadedService.provider).to.deep.equal({ name: 'aws' });
-        expect(loadedService.functions).to.deep.equal(expectedFunc);
-        expect(serviceInstance.environment.stages.dev.regions['us-east-1'].vars)
-          .to.deep.equal({});
-      });
-    });
-
-    it('should load and populate from filesystem', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: '${testVar}',
+        service: 'new-service',
         provider: 'aws',
         defaults: {
           stage: 'dev',
           region: 'us-east-1',
-        },
-        custom: {
-          digit: '${testDigit}',
-          substring: 'Hello ${testSubstring}',
+          variableSyntax: '\\${{([\\s\\S]+?)}}',
         },
         plugins: ['testPlugin'],
         functions: {
@@ -236,547 +139,102 @@ describe('Service', () => {
           artifact: 'some/path/foo.zip',
         },
       };
-      const serverlessEnvYml = {
-        vars: {
-          testVar: 'commonVar',
-          testDigit: 10,
-          testSubstring: 'World',
-        },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
 
       SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
         YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
 
-      const serverless = new Serverless({ servicePath: tmpDirPath });
+      const serverless = new Serverless();
+      serverless.init();
+      serverless.config.update({ servicePath: tmpDirPath });
       serviceInstance = new Service(serverless);
 
-      const commonVars = {
-        testVar: 'commonVar',
-        testDigit: 10,
-        testSubstring: 'World',
-      };
-      return serviceInstance.load().then((loadedService) => {
-        expect(loadedService.service).to.be.equal('commonVar');
-        expect(loadedService.provider).to.deep.equal({ name: 'aws' });
-        expect(loadedService.plugins).to.deep.equal(['testPlugin']);
-        expect(loadedService.environment.vars).to.deep.equal(commonVars);
-        expect(serviceInstance.environment.stages.dev.regions['us-east-1'].vars)
-          .to.deep.equal({});
-        expect(loadedService.resources.aws).to.deep.equal({ resourcesProp: 'value' });
-        expect(loadedService.resources.azure).to.deep.equal({});
-        expect(loadedService.resources.google).to.deep.equal({});
-        expect(loadedService.package.include.length).to.equal(1);
-        expect(loadedService.package.include[0]).to.equal('include-me.js');
-        expect(loadedService.package.exclude.length).to.equal(1);
-        expect(loadedService.package.exclude[0]).to.equal('exclude-me.js');
-        expect(loadedService.package.artifact).to.equal('some/path/foo.zip');
+      return serviceInstance.load().then(() => {
+        expect(serviceInstance.service).to.be.equal('new-service');
+        expect(serviceInstance.provider).to.deep.equal({ name: 'aws' });
+        expect(serviceInstance.defaults.variableSyntax).to.equal('\\${{([\\s\\S]+?)}}');
+        expect(serviceInstance.plugins).to.deep.equal(['testPlugin']);
+        expect(serviceInstance.resources.aws).to.deep.equal({ resourcesProp: 'value' });
+        expect(serviceInstance.resources.azure).to.deep.equal({});
+        expect(serviceInstance.resources.google).to.deep.equal({});
+        expect(serviceInstance.package.include.length).to.equal(1);
+        expect(serviceInstance.package.include[0]).to.equal('include-me.js');
+        expect(serviceInstance.package.exclude.length).to.equal(1);
+        expect(serviceInstance.package.exclude[0]).to.equal('exclude-me.js');
+        expect(serviceInstance.package.artifact).to.equal('some/path/foo.zip');
       });
     });
 
-    it('should load and populate stage vars', () => {
+    it('should support Serverless file with a .yaml extension', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: '${testVar}',
-        provider: 'aws',
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testVar: 'commonVar',
-        },
-        stages: {
-          dev: {
-            vars: {
-              testVar: 'stageVar',
-            },
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-      return serviceInstance.load().then((loadedService) => {
-        expect(loadedService.service).to.be.equal('stageVar');
-      });
-    });
-
-    it('should load and populate region vars', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: '${testVar}',
-        provider: 'aws',
-        plugins: ['testPlugin'],
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testVar: 'commonVar',
-        },
-        stages: {
-          dev: {
-            vars: {
-              testVar: 'stageVar',
-            },
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {
-          testVar: 'regionVar',
-        },
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load().then((loadedService) => {
-        expect(loadedService.service).to.be.equal('regionVar');
-      });
-    });
-
-    it('should load and populate region vars when region is provided as shortcut', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: '${testVar}',
-        provider: 'aws',
-        plugins: ['testPlugin'],
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testVar: 'commonVar',
-        },
-        stages: {
-          dev: {
-            vars: {
-              testVar: 'stageVar',
-            },
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-west-2'] = {
-        vars: {
-          testVar: 'westRegionVar',
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {
-          testVar: 'eastRegionVar',
-        },
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load({ r: 'us-west-2' }).then((loadedService) => {
-        expect(loadedService.service).to.be.equal('westRegionVar');
-      });
-    });
-
-    it('should load and populate non string variables', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
-        custom: {
-          digit: '${testDigit}',
-        },
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testDigit: 10,
-        },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load()
-        .then((loadedService) => {
-          expect(loadedService.custom.digit).to.be.equal(10);
-        });
-    });
-
-    it('should load and populate object variables', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
-        custom: {
-          object: '${testObject}',
-        },
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testObject: {
-            subProperty: 'test',
-          },
-        },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load()
-        .then((loadedService) => {
-          expect(loadedService.custom.object).to.deep.equal({ subProperty: 'test' });
-        });
-    });
-
-    it('should load and populate boolean and 0 variables', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
-        custom: {
-          boolean: '${booleanValue}',
-          zero: '${zeroValue}',
-        },
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          booleanValue: false,
-          zeroValue: 0,
-        },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load()
-        .then((loadedService) => {
-          expect(loadedService.custom.boolean).to.equal(false);
-          expect(loadedService.custom.zero).to.equal(0);
-        });
-    });
-
-    it('should load and populate object variables deep sub properties', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
-        custom: {
-          object: '${testObject.subProperty.deepSubProperty}',
-        },
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testObject: {
-            subProperty: {
-              deepSubProperty: 'test',
-            },
-          },
-        },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load()
-        .then((loadedService) => {
-          expect(loadedService.custom.object).to.be.equal('test');
-        });
-    });
-
-    it('should load and populate substring variables', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
-        custom: {
-          substring: 'Hello ${testSubstring.subProperty.deepSubProperty}',
-        },
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testSubstring: {
-            subProperty: {
-              deepSubProperty: 'World',
-            },
-          },
-        },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-      return serviceInstance.load()
-        .then((loadedService) => {
-          expect(loadedService.custom.substring).to.be.equal('Hello World');
-        });
-    });
-
-    it('should load and populate with custom variable syntax', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: '${{testVar}}',
-        defaults: {
-          variableSyntax: '\\${{([\\s\\S]+?)}}',
-        },
-        provider: 'aws',
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testVar: 'commonVar',
-        },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load().then((loadedService) => {
-        expect(loadedService.service).to.be.equal('commonVar');
-        delete serviceInstance.defaults.variableSyntax;
-      });
-    });
-
-    it('should load custom function names if provided', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'testService',
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const serverlessYaml = {
+        service: 'my-service',
         provider: 'aws',
         functions: {
           functionA: {
-            name: 'customName',
-          },
-        },
-      };
-      const serverlessEnvYml = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
+            name: 'customFunctionName',
           },
         },
       };
 
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
+      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yaml'),
+        YAML.dump(serverlessYaml));
 
       const serverless = new Serverless({ servicePath: tmpDirPath });
       serviceInstance = new Service(serverless);
-      return serviceInstance.load().then((loadedService) => {
-        expect(loadedService.functions.functionA.name).to.equal('customName');
+
+      return serviceInstance.load().then(() => {
+        const expectedFunc = {
+          functionA: {
+            name: 'customFunctionName',
+            events: [],
+          },
+        };
+        expect(serviceInstance.service).to.be.equal('my-service');
+        expect(serviceInstance.provider).to.deep.equal({ name: 'aws' });
+        expect(serviceInstance.functions).to.deep.equal(expectedFunc);
       });
     });
 
-    it('should load and add events property if no events provided', () => {
+    it('should support Serverless file with a .yml extension', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
       const serverlessYml = {
-        service: 'testService',
+        service: 'my-service',
         provider: 'aws',
-        runtime: 'nodejs4.3',
         functions: {
           functionA: {},
         },
       };
-      const serverlessEnvYml = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
 
       SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
         YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
 
       const serverless = new Serverless({ servicePath: tmpDirPath });
       serviceInstance = new Service(serverless);
-      return serviceInstance.load().then((loadedService) => {
+
+      return serviceInstance.load({ stage: 'dev' }).then(() => {
         const expectedFunc = {
           functionA: {
-            name: 'testService-dev-functionA',
+            name: 'my-service-dev-functionA',
             events: [],
           },
         };
-        expect(loadedService.functions).to.be.deep.equal(expectedFunc);
+        expect(serviceInstance.service).to.be.equal('my-service');
+        expect(serviceInstance.provider).to.deep.equal({ name: 'aws' });
+        expect(serviceInstance.functions).to.deep.equal(expectedFunc);
       });
     });
 
     it('should throw error if service property is missing', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
       const serverlessYml = {
         provider: 'aws',
         functions: {},
       };
-      const serverlessEnvYml = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
       SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
         YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
 
       const serverless = new Serverless({ servicePath: tmpDirPath });
       serviceInstance = new Service(serverless);
@@ -792,68 +250,13 @@ describe('Service', () => {
 
     it('should throw error if provider property is missing', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
       const serverlessYml = {
         service: 'service-name',
         functions: {},
       };
-      const serverlessEnvYml = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
       SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
         YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load().then(() => {
-        // if we reach this, then no error was thrown as expected
-        // so make assertion fail intentionally to let us know something is wrong
-        expect(1).to.equal(2);
-      }).catch(e => {
-        expect(e.name).to.be.equal('ServerlessError');
-      });
-    });
-
-    it('should throw error if provider property is invalid', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'invalid',
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
 
       const serverless = new Serverless({ servicePath: tmpDirPath });
       serviceInstance = new Service(serverless);
@@ -869,69 +272,13 @@ describe('Service', () => {
 
     it('should throw error if functions property is missing', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
       const serverlessYml = {
         service: 'service-name',
         provider: 'aws',
       };
-      const serverlessEnvYml = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
       SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
         YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load().then(loadedService => {
-        expect(loadedService.functions).to.equal(true);
-      }).catch(e => {
-        expect(e.name).to.be.equal('ServerlessError');
-      });
-    });
-
-    it('should throw error if variable does not exist', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
-        custom: {
-          object: '${testVar}',
-        },
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
 
       const serverless = new Serverless({ servicePath: tmpDirPath });
       serviceInstance = new Service(serverless);
@@ -945,37 +292,17 @@ describe('Service', () => {
       });
     });
 
-    it('should throw error if we try to access sub property of string variable', () => {
+    it('should throw error if provider property is invalid', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
       const serverlessYml = {
         service: 'service-name',
-        provider: 'aws',
-        custom: {
-          testVar: '${testVar.subProperty}',
-        },
+        provider: 'invalid',
         functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testVar: 'test',
-        },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
       };
 
       SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
         YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
 
       const serverless = new Serverless({ servicePath: tmpDirPath });
       serviceInstance = new Service(serverless);
@@ -988,187 +315,860 @@ describe('Service', () => {
         expect(e.name).to.be.equal('ServerlessError');
       });
     });
+  });
 
-    it('should throw error if we try to access sub property of non-object variable', () => {
+  describe('#populate()', () => {
+    const serverless = new Serverless();
+    it('should populate an entire variable file', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const configYml = {
+        test: 1,
+        test2: 'test2',
+        testObj: {
+          sub: 2,
+          prob: 'prob',
+        },
+      };
+
+      SUtils.writeFileSync(path.join(tmpDirPath, 'config.yml'),
+        YAML.dump(configYml));
+      serverless.config.update({ servicePath: tmpDirPath });
+
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
         custom: {
-          testVar: '${testVar.subProperty}',
+          anotherFile: '${file(./config.yml)}',
         },
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testVar: 10,
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
         },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
+        resources: {
+          aws: {
+            resourcesProp: 'value',
           },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
         },
       };
 
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load().then(() => {
-        // if we reach this, then no error was thrown as expected
-        // so make assertion fail intentionally to let us know something is wrong
-        expect(1).to.equal(2);
-      }).catch(e => {
-        expect(e.name).to.be.equal('ServerlessError');
-      });
+      const serviceInstance = new Service(serverless, data);
+      const populatedService = serviceInstance.populate();
+      expect(populatedService.custom.anotherFile).to.deep.equal(configYml);
     });
 
-    it('should throw error if sub property does not exist in object at any level', () => {
+    it('should populate from another file when variable is of any type', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const configYml = {
+        test: 1,
+        test2: 'test2',
+        testObj: {
+          sub: 2,
+          prob: 'prob',
+        },
+      };
+
+      SUtils.writeFileSync(path.join(tmpDirPath, 'config.yml'),
+        YAML.dump(configYml));
+      serverless.config.update({ servicePath: tmpDirPath });
+
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
         custom: {
-          testObject: '${testObject.subProperty.deepSubProperty}',
+          anotherFile: '${file(./config.yml).testObj.sub}',
         },
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testObject: {
-            subProperty: 'string',
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
           },
+          azure: {},
+          google: {},
         },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
         },
       };
 
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load().then(() => {
-        // if we reach this, then no error was thrown as expected
-        // so make assertion fail intentionally to let us know something is wrong
-        expect(1).to.equal(2);
-      }).catch(e => {
-        expect(e.name).to.be.equal('ServerlessError');
-      });
+      const serviceInstance = new Service(serverless, data);
+      const populatedService = serviceInstance.populate();
+      expect(populatedService.custom.anotherFile).to.equal(2);
     });
 
-    it('should throw error if trying to populate non string vars into string', () => {
+    it('should populate from another file as substring when variable is of a string', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const configYml = {
+        test: 1,
+        test2: 'test2',
+        testObj: {
+          sub: 2,
+          prob: 'prob',
+        },
+      };
+
+      SUtils.writeFileSync(path.join(tmpDirPath, 'config.yml'),
+        YAML.dump(configYml));
+      serverless.config.update({ servicePath: tmpDirPath });
+
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
         custom: {
-          testVar: '${testVar} String',
+          anotherFile: '${file(./config.yml).testObj.prob}--${file(./config.yml).test2}',
         },
-        functions: {},
-      };
-      const serverlessEnvYml = {
-        vars: {
-          testVar: 10,
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
         },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
+        resources: {
+          aws: {
+            resourcesProp: 'value',
           },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
         },
       };
 
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
-
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
-
-      return serviceInstance.load().then(() => {
-        // if we reach this, then no error was thrown as expected
-        // so make assertion fail intentionally to let us know something is wrong
-        expect(1).to.equal(2);
-      }).catch(e => {
-        expect(e.name).to.be.equal('ServerlessError');
-      });
+      const serviceInstance = new Service(serverless, data);
+      const populatedService = serviceInstance.populate();
+      expect(populatedService.custom.anotherFile).to.equal('prob--test2');
     });
 
-    it('should throw error if trying to populate non string deep vars into string', () => {
-      const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
-      const serverlessYml = {
-        service: 'service-name',
-        provider: 'aws',
+    it('should populate from environment variables', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
         custom: {
-          testObject: '${testObject.subProperty} String',
+          customProp: 'value',
+          envVarRef: '${env.TEST_VAR}',
         },
-        functions: {},
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
       };
-      const serverlessEnvYml = {
-        vars: {
-          testObject: {
-            subProperty: {
-              deepSubProperty: 'string',
+
+      const serviceInstance = new Service(serverless, data);
+      process.env.TEST_VAR = 'someValue';
+      const populatedService = serviceInstance.populate();
+      expect(populatedService.custom.envVarRef).to.equal('someValue');
+      delete process.env.TEST_VAR;
+    });
+
+    it('should populate from options', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customProp: 'value',
+          optVarRef: '${opt.stage}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const options = {
+        stage: 'prod',
+      };
+
+      const serviceInstance = new Service(serverless, data);
+      const populatedService = serviceInstance.populate(options);
+      expect(populatedService.custom.optVarRef).to.equal('prod');
+    });
+
+    it('should populate entire options object', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customProp: 'value',
+          optVarRef: '${opt}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const options = {
+        stage: 'prod',
+        region: 'us-east-1',
+      };
+
+      const serviceInstance = new Service(serverless, data);
+      const populatedService = serviceInstance.populate(options);
+      expect(populatedService.custom.optVarRef).to.deep.equal(options);
+    });
+
+    it('should populate complex nested variable references', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          test: '${env.${opt.${self.custom.selfVarRef}}_arn} xxx ${env.${opt.${opt.test}}_arn}',
+          selfVarRef: 'stageA',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      const options = {
+        stageA: 'dev',
+        stageB: 'prod',
+        test: 'stageB',
+      };
+      process.env.dev_arn = 'devArn';
+      process.env.prod_arn = 'prodArn';
+      const populatedService = serviceInstance.populate(options);
+      expect(populatedService.custom.test)
+        .to.equal('devArn xxx prodArn');
+      delete process.env.dev_arn;
+      delete process.env.prod_arn;
+    });
+
+    it('should populate from deep any type properties in self service', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          selfVarRef: '${self.custom.customObj.prop1}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      const populatedService = serviceInstance.populate();
+      expect(populatedService.custom.selfVarRef)
+        .to.equal(data.custom.customObj.prop1);
+      expect(typeof populatedService.custom.selfVarRef)
+        .to.equal('number');
+    });
+
+    it('should populate all when the referenced variable contains a variable', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          selfVarRef: '${self.custom.customObj.prop2.subProp1}',
+          customObj: {
+            prop1: 'world',
+            prop2: {
+              subProp1: 'hello ${self.custom.customObj.prop1}',
             },
           },
         },
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
           },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      const populatedService = serviceInstance.populate();
+      expect(populatedService.custom.selfVarRef)
+        .to.equal('hello world');
+    });
+
+    it('should throw error when referencing sub properties with invalid syntax', () => {
+      const SUtils = new Utils();
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const configYml = {
+        test: 1,
+        test2: 'test2',
+        testObj: {
+          sub: 2,
+          prob: 'prob',
         },
       };
 
-      serverlessEnvYml.stages.dev.regions['us-east-1'] = {
-        vars: {},
+      SUtils.writeFileSync(path.join(tmpDirPath, 'config.yml'),
+        YAML.dump(configYml));
+      serverless.config.update({ servicePath: tmpDirPath });
+
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          anotherFile: '${file(./config.yml)testObj.prob}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
       };
 
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.yml'),
-        YAML.dump(serverlessYml));
-      SUtils.writeFileSync(path.join(tmpDirPath, 'serverless.env.yml'),
-        YAML.dump(serverlessEnvYml));
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate()).to.throw(Error);
+    });
 
-      const serverless = new Serverless({ servicePath: tmpDirPath });
-      serviceInstance = new Service(serverless);
+    it('should throw error when referencing non-existing sub properties of a file', () => {
+      const SUtils = new Utils();
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const configYml = {
+        test: 1,
+        test2: 'test2',
+        testObj: {
+          sub: 2,
+          prob: 'prob',
+        },
+      };
 
-      return serviceInstance.load().then(() => {
-        // if we reach this, then no error was thrown as expected
-        // so make assertion fail intentionally to let us know something is wrong
-        expect(1).to.equal(2);
-      }).catch(e => {
-        expect(e.name).to.be.equal('ServerlessError');
-      });
+      SUtils.writeFileSync(path.join(tmpDirPath, 'config.yml'),
+        YAML.dump(configYml));
+      serverless.config.update({ servicePath: tmpDirPath });
+
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          anotherFile: '${file(./config.yml).testObj.probDoesNotExist}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate()).to.throw(Error);
+    });
+
+    it('should throw error on non string variables from a file as a substring', () => {
+      const SUtils = new Utils();
+      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const configYml = {
+        test: 1,
+        test2: 'test2',
+        testObj: {
+          sub: 2,
+          prob: 'prob',
+        },
+      };
+
+      SUtils.writeFileSync(path.join(tmpDirPath, 'config.yml'),
+        YAML.dump(configYml));
+      serverless.config.update({ servicePath: tmpDirPath });
+
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          anotherFile: '${file(./config.yml).testObj.prob}--${file(./config.yml).test}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate()).to.throw(Error);
+    });
+
+    it('should throw error when populating non string as substring from self service', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          selfVarRef: 'this is a string: ${self.custom.customObj.prop1}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate())
+        .to.throw(Error);
+    });
+
+    it('should throw error when populating from self service with invalid property', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          selfVarRef: '${self.custom.invalidCustomObj.prop3}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate())
+        .to.throw(Error);
+    });
+
+    it('should throw error when referencing the entire serverless.yml file', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          varRef: '${self}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate())
+        .to.throw(Error);
+    });
+
+    it('should throw error when populating env vars strings as objects', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          envVarRef: '${env.var.subProp}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate())
+        .to.throw(Error);
+    });
+
+    it('should throw error when populating undefined env vars', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          envVarRef: '${env.undefinedVar}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate())
+        .to.throw(Error);
+    });
+
+    it('should throw error when populating option strings as objects', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          optVarRef: '${opt.stage.subProp}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const options = {
+        stage: 'prod',
+        region: 'us-east-1',
+      };
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate(options))
+        .to.throw(Error);
+    });
+
+    it('should throw error when populating option obj as sub string', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          optVarRef: 'this is a string: ${opt}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const options = {
+        stage: 'prod',
+        region: 'us-east-1',
+      };
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate(options))
+        .to.throw(Error);
+    });
+
+    it('should throw error when populating an option that was not passed', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          optVarRef: 'this is a string: ${opt.unPassedOption}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const options = {
+        stage: 'prod',
+        region: 'us-east-1',
+      };
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate(options))
+        .to.throw(Error);
+    });
+
+    it('should throw error when referencing invalid source', () => {
+      const data = {
+        service: 'testService',
+        provider: 'testProvider',
+        custom: {
+          customObj: {
+            prop1: 1,
+            prop2: {
+              subProp1: 'subProp1',
+            },
+          },
+          varRef: '${src.var}',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      expect(() => serviceInstance.populate())
+        .to.throw(Error);
+    });
+
+
+    it('should throw an error if there is an issue in a complex nested variable references', () => {
+      const data = {
+        service: 'testService',
+        provider: {
+          name: 'aws',
+        },
+        custom: {
+          test: '${env.${opt.${self.provider}}_arn} xxx ${env.${opt.${opt.test}}_arn}',
+          selfVarRef: 'stageA',
+        },
+        plugins: ['testPlugin'],
+        functions: {
+          functionA: {},
+        },
+        resources: {
+          aws: {
+            resourcesProp: 'value',
+          },
+          azure: {},
+          google: {},
+        },
+        package: {
+          include: ['include-me.js'],
+          exclude: ['exclude-me.js'],
+          artifact: 'some/path/foo.zip',
+        },
+      };
+      const serviceInstance = new Service(serverless, data);
+      const options = {
+        stageA: 'dev',
+        stageB: 'prod',
+        test: 'stageB',
+      };
+      process.env.dev_arn = 'devArn';
+      process.env.prod_arn = 'prodArn';
+      expect(() => serviceInstance.populate(options))
+        .to.throw(Error);
+      delete process.env.dev_arn;
+      delete process.env.prod_arn;
     });
   });
 
@@ -1269,178 +1269,6 @@ describe('Service', () => {
 
       expect(serviceInstance.getAllEventsInFunction('create'))
         .to.deep.equal(['schedule', 'bucket']);
-    });
-  });
-
-  describe('#getStage()', () => {
-    let serviceInstance;
-    before(() => {
-      const serverless = new Serverless();
-      serviceInstance = new Service(serverless);
-      serviceInstance.environment = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serviceInstance.environment.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-    });
-
-    it('should return stage object', () => {
-      const expectedStageObj = {
-        vars: {},
-        regions: {},
-      };
-      expectedStageObj.regions['us-east-1'] = {
-        vars: {},
-      };
-      expect(serviceInstance.getStage('dev')).to.deep.equal(expectedStageObj);
-    });
-
-    it('should throw error if stage does not exist', () => {
-      expect(() => {
-        serviceInstance.getStage('prod');
-      }).to.throw(Error);
-    });
-  });
-
-  describe('#getAllStages()', () => {
-    it('should return an array of stage names in Service', () => {
-      const serverless = new Serverless();
-      const serviceInstance = new Service(serverless);
-      serviceInstance.environment = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serviceInstance.environment.stages.dev.regions['us-east-1'] = {
-        vars: {},
-      };
-
-      expect(serviceInstance.getAllStages()).to.deep.equal(['dev']);
-    });
-  });
-
-
-  describe('#getRegionInStage()', () => {
-    let serviceInstance;
-    before(() => {
-      const serverless = new Serverless();
-      serviceInstance = new Service(serverless);
-      serviceInstance.environment = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serviceInstance.environment.stages.dev.regions['us-east-1'] = {
-        vars: {
-          regionVar: 'regionValue',
-        },
-      };
-    });
-
-    it('should return a region object based on provided stage', () => {
-      expect(serviceInstance.getRegionInStage('dev', 'us-east-1')
-        .vars.regionVar).to.be.equal('regionValue');
-    });
-
-    it('should throw error if stage does not exist in service', () => {
-      expect(() => {
-        serviceInstance.getRegionInStage('prod');
-      }).to.throw(Error);
-    });
-
-    it('should throw error if region doesnt exist in stage', () => {
-      expect(() => {
-        serviceInstance.getRegionInStage('dev', 'us-west-2');
-      }).to.throw(Error);
-    });
-  });
-
-  describe('#getAllRegionsInStage()', () => {
-    it('should return an array of regions in a specified stage', () => {
-      const serverless = new Serverless();
-      const serviceInstance = new Service(serverless);
-      serviceInstance.environment = {
-        vars: {},
-        stages: {
-          dev: {
-            vars: {},
-            regions: {},
-          },
-        },
-      };
-
-      serviceInstance.environment.stages.dev.regions['us-east-1'] = {
-        vars: {
-          regionVar: 'regionValue',
-        },
-      };
-
-      serviceInstance.environment.stages.dev.regions['us-west-2'] = {
-        vars: {
-          regionVar: 'regionValue',
-        },
-      };
-
-      expect(serviceInstance.getAllRegionsInStage('dev'))
-        .to.deep.equal(['us-east-1', 'us-west-2']);
-    });
-  });
-
-  describe('#getVariables()', () => {
-    let serviceInstance;
-    before(() => {
-      const serverless = new Serverless();
-      serviceInstance = new Service(serverless);
-      serviceInstance.environment = {
-        vars: {
-          commonVar: 'commonValue',
-        },
-        stages: {
-          dev: {
-            vars: {
-              stageVar: 'stageValue',
-            },
-            regions: {},
-          },
-        },
-      };
-
-      serviceInstance.environment.stages.dev.regions['us-east-1'] = {
-        vars: {
-          regionVar: 'regionValue',
-        },
-      };
-    });
-
-    it('should return common variables if no stage/region provided', () => {
-      expect(serviceInstance.getVariables().commonVar).to.be.equal('commonValue');
-    });
-
-    it('should return stage variables if no region provided', () => {
-      expect(serviceInstance.getVariables('dev').stageVar).to.be.equal('stageValue');
-    });
-
-    it('should return region variables if both stage and region provided', () => {
-      expect(serviceInstance.getVariables('dev', 'us-east-1').regionVar)
-        .to.be.equal('regionValue');
     });
   });
 });
