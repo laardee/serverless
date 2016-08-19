@@ -113,7 +113,7 @@ describe('Service', () => {
 
     it('should load from filesystem', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const serverlessYml = {
         service: 'new-service',
         provider: 'aws',
@@ -166,7 +166,7 @@ describe('Service', () => {
 
     it('should support Serverless file with a .yaml extension', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const serverlessYaml = {
         service: 'my-service',
         provider: 'aws',
@@ -198,7 +198,7 @@ describe('Service', () => {
 
     it('should support Serverless file with a .yml extension', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const serverlessYml = {
         service: 'my-service',
         provider: 'aws',
@@ -228,7 +228,7 @@ describe('Service', () => {
 
     it('should throw error if service property is missing', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const serverlessYml = {
         provider: 'aws',
         functions: {},
@@ -250,7 +250,7 @@ describe('Service', () => {
 
     it('should throw error if provider property is missing', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const serverlessYml = {
         service: 'service-name',
         functions: {},
@@ -272,7 +272,7 @@ describe('Service', () => {
 
     it('should throw error if functions property is missing', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const serverlessYml = {
         service: 'service-name',
         provider: 'aws',
@@ -294,7 +294,7 @@ describe('Service', () => {
 
     it('should throw error if provider property is invalid', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const serverlessYml = {
         service: 'service-name',
         provider: 'invalid',
@@ -321,7 +321,7 @@ describe('Service', () => {
     const serverless = new Serverless();
     it('should populate an entire variable file', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const configYml = {
         test: 1,
         test2: 'test2',
@@ -366,7 +366,7 @@ describe('Service', () => {
 
     it('should populate from another file when variable is of any type', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const configYml = {
         test: 1,
         test2: 'test2',
@@ -411,7 +411,7 @@ describe('Service', () => {
 
     it('should populate from another file as substring when variable is of a string', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const configYml = {
         test: 1,
         test2: 'test2',
@@ -672,7 +672,7 @@ describe('Service', () => {
 
     it('should throw error when referencing sub properties with invalid syntax', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const configYml = {
         test: 1,
         test2: 'test2',
@@ -716,7 +716,7 @@ describe('Service', () => {
 
     it('should throw error when referencing non-existing sub properties of a file', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const configYml = {
         test: 1,
         test2: 'test2',
@@ -760,7 +760,7 @@ describe('Service', () => {
 
     it('should throw error on non string variables from a file as a substring', () => {
       const SUtils = new Utils();
-      const tmpDirPath = path.join(os.tmpdir(), (new Date).getTime().toString());
+      const tmpDirPath = path.join(os.tmpdir(), (new Date()).getTime().toString());
       const configYml = {
         test: 1,
         test2: 'test2',
