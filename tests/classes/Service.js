@@ -104,11 +104,11 @@ describe('Service', () => {
   describe('#load()', () => {
     let serviceInstance;
 
-    it('should resolve if no servicePath is found', (done) => {
+    it('should resolve if no servicePath is found', () => {
       const serverless = new Serverless();
       const noService = new Service(serverless);
 
-      return noService.load().then(() => done());
+      return noService.load();
     });
 
     it('should load from filesystem', () => {
