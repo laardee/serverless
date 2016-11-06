@@ -139,6 +139,7 @@ Use these plugins to overwrite or extend the Framework's functionality…
 * [serverless-garden-aid](https://github.com/garden-aid/web-bff)
 * [serverless-react-boilerplate](https://github.com/99xt/serverless-react-boilerplate)
 * [serverless-delivery-framework](https://github.com/99xt/serverless-delivery-framework)
+* [serverless-messenger-boilerplate](https://github.com/SC5/serverless-messenger-boilerplate) - Facebook Messenger Chatbot project with wit.ai and OpenWeatherMap integration
 
 ## <a name="why-serverless"></a>Why Serverless?
 
