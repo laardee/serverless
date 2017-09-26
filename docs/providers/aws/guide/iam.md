@@ -26,23 +26,23 @@ service: new-service
 provider:
   name: aws
   iamRoleStatements:
-    -  Effect: "Allow"
+    -  Effect: Allow
        Action:
-         - "s3:ListBucket"
+         - 's3:ListBucket'
        Resource:
          Fn::Join:
-           - ""
-           - - "arn:aws:s3:::"
+           - ''
+           - - 'arn:aws:s3:::'
              - Ref: ServerlessDeploymentBucket
-    -  Effect: "Allow"
+    -  Effect: Allow
        Action:
-         - "s3:PutObject"
+         - s3:PutObject
        Resource:
          Fn::Join:
-           - ""
-           - - "arn:aws:s3:::"
+           - ''
+           - - 'arn:aws:s3:::'
              - Ref: ServerlessDeploymentBucket
-             - "/*"
+             - '/*'
 
 ```
 
@@ -117,14 +117,13 @@ resources:
                         - Ref: 'AWS::Region'
                         - Ref: 'AWS::AccountId'
                         - 'log-group:/aws/lambda/*:*:*'
-                -  Effect: "Allow"
+                -  Effect: Allow
                    Action:
-                     - "s3:PutObject"
+                     - s3:PutObject
                    Resource:
-                     Fn::Join:
-                       - ""
-                       - - "arn:aws:s3:::"
-                         - "Ref" : "ServerlessDeploymentBucket"
+                     Fn::GetAtt:
+                       - ServerlessDeploymentBucket
+                       - Arn
 ```
 
 ### Custom IAM Roles For Each Function
@@ -183,7 +182,7 @@ resources:
                     - ec2:DescribeNetworkInterfaces
                     - ec2:DetachNetworkInterface
                     - ec2:DeleteNetworkInterface
-                  Resource: "*"
+                  Resource: '*'
     myCustRole1:
       Type: AWS::IAM::Role
       Properties:
@@ -215,14 +214,13 @@ resources:
                         - Ref: 'AWS::Region'
                         - Ref: 'AWS::AccountId'
                         - 'log-group:/aws/lambda/*:*:*'
-                -  Effect: "Allow"
+                -  Effect: Allow
                    Action:
-                     - "s3:PutObject"
+                     - s3:PutObject
                    Resource:
-                     Fn::Join:
-                       - ""
-                       - - "arn:aws:s3:::"
-                         - "Ref" : "ServerlessDeploymentBucket"
+                     Fn::GetAtt:
+                       - ServerlessDeploymentBucket
+                       - Arn
 ```
 
 ### A Custom Default Role & Custom Function Roles
@@ -274,14 +272,13 @@ resources:
                         - Ref: 'AWS::Region'
                         - Ref: 'AWS::AccountId'
                         - 'log-group:/aws/lambda/*:*:*'
-                -  Effect: "Allow"
+                -  Effect: Allow
                    Action:
-                     - "s3:PutObject"
+                     - s3:PutObject
                    Resource:
-                     Fn::Join:
-                       - ""
-                       - - "arn:aws:s3:::"
-                         - "Ref" : "ServerlessDeploymentBucket"
+                     Fn::GetAtt:
+                       - ServerlessDeploymentBucket
+                       - Arn
     myCustRole0:
       Type: AWS::IAM::Role
       Properties:
@@ -319,5 +316,5 @@ resources:
                     - ec2:DescribeNetworkInterfaces
                     - ec2:DetachNetworkInterface
                     - ec2:DeleteNetworkInterface
-                  Resource: "*"
+                  Resource: '*'
 ```
